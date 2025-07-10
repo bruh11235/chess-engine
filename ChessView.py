@@ -12,30 +12,26 @@ class ChessView:
     """
     def __init__(self):
         self.model = None
+        self.screen = None
 
-    def draw(self, screen):
-        state: str = self.model.getState()
+    def update(self, highlight):
+        state = self.model.getState()
 
-        screen_w, screen_h = screen.get_size()
+        screen_w, screen_h = self.screen.get_size()
         bg_img = pygame.transform.scale(pygame.image.load("resources/board.png"), (screen_w, screen_h))
-        screen.blit(bg_img, (0, 0))
 
-        state_ptr, empty_count = 0, 0
-        for i in range(8):
-            for j in range(8):
-                print(state[state_ptr])
+        for r, c in highlight:
+            red_filter = pygame.Surface((screen_w / 8, screen_h / 8), pygame.SRCALPHA)
+            red_filter.fill((255, 0, 0, 127))
+            bg_img.blit(red_filter, (screen_w / 8 * c, screen_h / 8 * r))
 
-                if state[state_ptr].upper() in 'BKNPQR':
-                    path = "resources/pieces/" + ('w' if state[state_ptr].isupper() else 'b') + state[state_ptr].upper() + ".png"
+        self.screen.blit(bg_img, (0, 0))
+
+        for r, row in enumerate(state):
+            for c, char in enumerate(row):
+                if char.isalpha():
+                    path = "resources/pieces/" + ('w' if char.isupper() else 'b') + char.upper() + ".png"
                     piece = pygame.transform.scale(pygame.image.load(path), (screen_w / 8, screen_h / 8))
-                    screen.blit(piece, (screen_w / 8 * j, screen_h / 8 * i))
-
-                if state[state_ptr].isnumeric():
-                    empty_count += 1
-                if (state[state_ptr].isnumeric() and empty_count >= int(state[state_ptr])) or state[state_ptr].isalpha():
-                    state_ptr += 1
-                    empty_count = 0
-                while not state[state_ptr].isalnum():
-                    state_ptr += 1
+                    self.screen.blit(piece, (screen_w / 8 * c, screen_h / 8 * r))
 
         pygame.display.flip()

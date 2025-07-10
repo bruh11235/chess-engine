@@ -13,18 +13,18 @@ class ChessController:
     def __init__(self, model, view):
         model.view = view
         view.model = model
-        self.model = model
-        self.view = view
 
         pygame.init()
-        pygame.font.init()
-        pygame.mixer.init()
-        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
+        view.screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.RESIZABLE)
 
-        self.view.draw(screen)
+        view.update([])
 
         running = True
         while running:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     running = False
+
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    x, y = pygame.mouse.get_pos()
+                    model.select(int(y / HEIGHT * 8), int(x / WIDTH * 8))
