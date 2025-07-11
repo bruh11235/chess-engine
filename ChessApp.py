@@ -6,3 +6,4 @@ from ChessView import ChessView
 from ChessModel import ChessModel
 
 c = ChessController(ChessModel(), ChessView())
+c.start()
