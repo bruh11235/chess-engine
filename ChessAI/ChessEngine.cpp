@@ -90,18 +90,18 @@ bitboard_t ChessEngine::get_piece_moves(const int index, const Color turn) const
     // Pawns
     if (state.pieces[0] & own_pieces & piece) {
         if (turn == Color::Black) {
-            if ((index % 8 != 0) && (all_pieces & piece << 7)) moves |= piece << 7;
-            if ((index % 8 != 7) && (all_pieces & piece << 9)) moves |= piece << 9;
+            if ((index & 7) != 0 && (all_pieces & piece << 7)) moves |= piece << 7;
+            if ((index & 7) != 7 && (all_pieces & piece << 9)) moves |= piece << 9;
             if (!(all_pieces & piece << 8)) {
                 moves |= piece << 8;
-                if ((index / 8 == 1) && !(all_pieces & piece << 16)) moves |= piece << 16;
+                if ((index >> 3) == 1 && !(all_pieces & piece << 16)) moves |= piece << 16;
             }
         } else {
-            if ((index % 8 != 7) && (all_pieces & piece >> 7)) moves |= piece >> 7;
-            if ((index % 8 != 0) && (all_pieces & piece >> 9)) moves |= piece >> 9;
+            if ((index & 7) != 7 && (all_pieces & piece >> 7)) moves |= piece >> 7;
+            if ((index & 7) != 0 && (all_pieces & piece >> 9)) moves |= piece >> 9;
             if (!(all_pieces & piece >> 8)) {
                 moves |= piece >> 8;
-                if ((index / 8 == 6) && !(all_pieces & piece >> 16)) moves |= piece >> 16;
+                if ((index >> 3) == 6 && !(all_pieces & piece >> 16)) moves |= piece >> 16;
             }
         }
     }
@@ -173,9 +173,35 @@ bitboard_t ChessEngine::attacked_cells(const Color attacker) const {
 
 
 bool ChessEngine::has_check(const Color attacker) const {
-    const bitboard_t attacked = attacked_cells(attacker);
-    const bitboard_t other_king = (attacker == Color::Black ? state.white : state.black) & state.pieces[5];
-    return attacked & other_king;
+    const bitboard_t all_pieces = state.black | state.white;
+    const bitboard_t attacker_pieces = (attacker == Color::Black ? state.black : state.white);
+    const bitboard_t target_king = (attacker == Color::Black ? state.white : state.black) & state.pieces[5];
+    const int index = bit_width(target_king) - 1;
+
+    // Attacked by rook / queen
+    const bitboard_t rook_occupancy = all_pieces & Bitboard::rook_moves[index][MAGIC_MASK];
+    const bitboard_t rook_attacks = Bitboard::rook_moves[index][rook_occupancy * ROOK_MAGIC[index] >> MAGIC_SHIFT];
+    if (rook_attacks & attacker_pieces & (state.pieces[3] | state.pieces[4])) return true;
+
+    // Attacked by bishop / queen
+    const bitboard_t bishop_occupancy = all_pieces & Bitboard::bishop_moves[index][MAGIC_MASK];
+    const bitboard_t bishop_attacks = Bitboard::bishop_moves[index][bishop_occupancy * BISHOP_MAGIC[index] >> MAGIC_SHIFT];
+    if (bishop_attacks & attacker_pieces & (state.pieces[2] | state.pieces[4])) return true;
+
+    // Attacked by king / knight
+    if (Bitboard::king_moves[index] & attacker_pieces & state.pieces[5]) return true;
+    if (Bitboard::knight_moves[index] & attacker_pieces & state.pieces[1]) return true;
+
+    // Attacked by pawn
+    if (attacker == Color::White) {
+        if ((index & 7) != 0 && (attacker_pieces & state.pieces[0] & (target_king << 7))) return true;
+        if ((index & 7) != 7 && (attacker_pieces & state.pieces[0] & (target_king << 9))) return true;
+    } else {
+        if ((index & 7) != 0 && (attacker_pieces & state.pieces[0] & (target_king >> 9))) return true;
+        if ((index & 7) != 7 && (attacker_pieces & state.pieces[0] & (target_king >> 7))) return true;
+    }
+
+    return false;
 }
 
 
