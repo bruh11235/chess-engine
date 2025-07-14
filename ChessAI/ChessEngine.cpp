@@ -90,15 +90,15 @@ bitboard_t ChessEngine::get_piece_moves(const int index, const Color turn) const
     // Pawns
     if (state.pieces[0] & own_pieces & piece) {
         if (turn == Color::Black) {
-            if ((index & 7) != 0 && (all_pieces & piece << 7)) moves |= piece << 7;
-            if ((index & 7) != 7 && (all_pieces & piece << 9)) moves |= piece << 9;
+            if ((index & 7) != 0 && ((all_pieces & piece << 7) || (index + 7 == en_passant))) moves |= piece << 7;
+            if ((index & 7) != 7 && ((all_pieces & piece << 9) || (index + 9 == en_passant))) moves |= piece << 9;
             if (!(all_pieces & piece << 8)) {
                 moves |= piece << 8;
                 if ((index >> 3) == 1 && !(all_pieces & piece << 16)) moves |= piece << 16;
             }
         } else {
-            if ((index & 7) != 7 && (all_pieces & piece >> 7)) moves |= piece >> 7;
-            if ((index & 7) != 0 && (all_pieces & piece >> 9)) moves |= piece >> 9;
+            if ((index & 7) != 7 && ((all_pieces & piece >> 7) || (index - 7 == en_passant))) moves |= piece >> 7;
+            if ((index & 7) != 0 && ((all_pieces & piece >> 9) || (index - 9 == en_passant))) moves |= piece >> 9;
             if (!(all_pieces & piece >> 8)) {
                 moves |= piece >> 8;
                 if ((index >> 3) == 6 && !(all_pieces & piece >> 16)) moves |= piece >> 16;
@@ -208,9 +208,11 @@ bool ChessEngine::has_check(const Color attacker) const {
 Color ChessEngine::get_turn() const { return turn; }
 
 
-void ChessEngine::move(const int from, const int to, const bool save_to_history) {
+
+void ChessEngine::move(const int from, const int to, const bool undoing) {
     if (pieces[from] == 6) return;
-    const int8_t captured = pieces[to];
+    int cap = to, cap_piece = pieces[to];
+    const int current_en_passant = en_passant;
     const bool is_black_turn = state.black & 1ull << from;
 
     (is_black_turn ? state.white : state.black) &= ~(1ull << to);
@@ -223,17 +225,32 @@ void ChessEngine::move(const int from, const int to, const bool save_to_history)
     if (pieces[from] < 6) state.pieces[pieces[from]] ^= 1ull << from;
     pieces[from] = 6;
 
-    if (save_to_history) {
-        const auto from8 = static_cast<int8_t>(from), to8 = static_cast<int8_t>(to);
-        move_history.push({from8, to8, to8, captured});
+    // En Passant
+    if (!undoing) {
+        if (pieces[to] == 0 && to == en_passant) {
+            cap = (to >> 3) == 2 ? to + 8 : to - 8;
+            cap_piece = pieces[cap];
+            (is_black_turn ? state.white : state.black) ^= 1ull << cap;
+            state.pieces[0] ^= 1ull << cap;
+            pieces[cap] = 0;
+        }
+        if (pieces[to] == 0 && abs(to - from) == 16) en_passant = (to + from) >> 1;
+        else en_passant = -1;
+    }
+
+    if (!undoing) {
+        move_history.push({from, to, cap, cap_piece, current_en_passant});
     }
     turn = (turn == Color::White ? Color::Black : Color::White);
 }
 
 
+void ChessEngine::move(const int from, const int to) { move(from, to, false); }
+
+
 void ChessEngine::unmove() {
-    auto [from, to, cap, cap_piece] = move_history.pop();
-    move(to, from, false);
+    auto [from, to, cap, cap_piece, old_en_passant] = move_history.pop();
+    move(to, from, true);
 
     const bool black_moved = state.black & 1ull << from;
     if (cap_piece < 6) {
@@ -241,4 +258,6 @@ void ChessEngine::unmove() {
         state.pieces[cap_piece] |= 1ull << cap;
     }
     pieces[cap] = cap_piece;
+
+    en_passant = old_en_passant;
 }
