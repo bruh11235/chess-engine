@@ -2,7 +2,6 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-constexpr bitboard_t ALL_ONE = ~0ull;
 
 // Internal helpers
 namespace {
@@ -21,10 +20,10 @@ namespace {
 
 
     /*
-        array[i][ALL_ONE] = All relevant occupancy positions
+        array[i][MAGIC_MASK] = All relevant occupancy positions
     */
-    array<unordered_map<bitboard_t, bitboard_t>, 64> generate_sweeping_moves(const vector<pair<int, int>> &moves) {
-        array<unordered_map<bitboard_t, bitboard_t>, 64>masks{};
+    array<array<bitboard_t, 8193>, 64> generate_sweeping_moves(const vector<pair<int, int>> &moves, const bitboard_t magic[64]) {
+        array<array<bitboard_t, 8193>, 64>masks{};
         for (int r = 0; r < 8; r++) {
             for (int c = 0; c < 8; c++) {
                 bitboard_t full_mask = 0;
@@ -35,7 +34,7 @@ namespace {
                         r2 += dr, c2 += dc;
                     }
                 }
-                masks[r * 8 + c].insert_or_assign(ALL_ONE, full_mask);
+                masks[r * 8 + c][MAGIC_MASK] = full_mask;
 
                 bitboard_t subset = 0;
                 do {
@@ -48,7 +47,10 @@ namespace {
                             r2 += dr, c2 += dc;
                         }
                     }
-                    masks[r * 8 + c].insert_or_assign(subset, mask);
+                    const int index = static_cast<int>(subset * magic[r * 8 + c] >> MAGIC_SHIFT);
+                    assert(0 <= index < (1 << (64 - MAGIC_SHIFT)));
+                    assert(!masks[r * 8 + c][index] || masks[r * 8 + c][index] == mask);
+                    masks[r * 8 + c][index] = mask;
                     subset = subset - full_mask & full_mask;
                 } while (subset != 0);
             }
@@ -58,8 +60,8 @@ namespace {
 };
 
 
-const array<unordered_map<bitboard_t, bitboard_t>, 64> Bitboard::rook_moves = generate_sweeping_moves({{-1, 0}, {1, 0}, {0, -1}, {0, 1}});
-const array<unordered_map<bitboard_t, bitboard_t>, 64> Bitboard::bishop_moves = generate_sweeping_moves({{1, 1}, {-1, 1}, {1, -1}, {-1, -1}});
+const array<array<bitboard_t, 8193>, 64> Bitboard::rook_moves = generate_sweeping_moves({{-1, 0}, {1, 0}, {0, -1}, {0, 1}}, ROOK_MAGIC);
+const array<array<bitboard_t, 8193>, 64> Bitboard::bishop_moves = generate_sweeping_moves({{1, 1}, {-1, 1}, {1, -1}, {-1, -1}}, BISHOP_MAGIC);
 const array<bitboard_t, 64> Bitboard::knight_moves = generate_fixed_moves({{1, 2}, {-1, 2}, {1, -2}, {-1, -2}, {2, 1}, {-2, 1}, {2, -1}, {-2, -1}});
 const array<bitboard_t, 64> Bitboard::king_moves = generate_fixed_moves({{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {1, 1}, {-1, 1}, {1, -1}, {-1, -1}});
 
@@ -106,14 +108,14 @@ bitboard_t ChessEngine::get_piece_moves(const int index, const Color turn) const
 
     // Rook & Queen1
     if ((state.pieces[4] | state.pieces[3]) & own_pieces & piece) {
-        const bitboard_t occupancy = all_pieces & Bitboard::rook_moves[index].at(ALL_ONE);
-        moves |= Bitboard::rook_moves[index].at(occupancy);
+        const bitboard_t occupancy = all_pieces & Bitboard::rook_moves[index][MAGIC_MASK];
+        moves |= Bitboard::rook_moves[index][occupancy * ROOK_MAGIC[index] >> MAGIC_SHIFT];
     }
 
     // Bishop & Queen2
     if ((state.pieces[4] | state.pieces[2]) & own_pieces & piece) {
-        const bitboard_t occupancy = all_pieces & Bitboard::bishop_moves[index].at(ALL_ONE);
-        moves |= Bitboard::bishop_moves[index].at(occupancy);
+        const bitboard_t occupancy = all_pieces & Bitboard::bishop_moves[index][MAGIC_MASK];
+        moves |= Bitboard::bishop_moves[index][occupancy * BISHOP_MAGIC[index] >> MAGIC_SHIFT];
     }
 
     // Knight
