@@ -78,7 +78,7 @@ Bitboard::Bitboard() {
 }
 
 
-// TODO: En passant, Pawn Promotion, Castling
+// TODO: Pawn Promotion, Castling
 bitboard_t ChessEngine::get_piece_moves(const int index, const Color turn) const {
     bitboard_t moves = 0;
 
@@ -232,7 +232,7 @@ void ChessEngine::move(const int from, const int to, const bool undoing) {
             cap_piece = pieces[cap];
             (is_black_turn ? state.white : state.black) ^= 1ull << cap;
             state.pieces[0] ^= 1ull << cap;
-            pieces[cap] = 0;
+            pieces[cap] = 6;
         }
         if (pieces[to] == 0 && abs(to - from) == 16) en_passant = (to + from) >> 1;
         else en_passant = -1;
