@@ -13,6 +13,7 @@ constexpr bitboard_t BISHOP_MAGIC[64] = {0x1B893094930C8CD3,0x34290BC08499D461,0
 constexpr int MAGIC_MASK = 8192;
 constexpr int MAGIC_SHIFT = 51;
 
+inline int DEBUG = 0;
 
 struct Bitboard {
     bitboard_t black{}, white{};
@@ -30,7 +31,7 @@ class ChessEngine {
 
     struct MoveInfo {
         int from{}, to{}, cap{}, cap_piece{}, en_passant{};
-        bool castled{};
+        bool castled{}, promoted{};
         std::bitset<4> castling;
     };
     template <std::size_t N>
@@ -62,14 +63,14 @@ class ChessEngine {
     [[nodiscard]] bitboard_t attacked_cells(Color attacker) const;
     [[nodiscard]] bitboard_t get_piece_moves(int index, Color turn) const;
     [[nodiscard]] bool is_attacked(Color attacker, bitboard_t attacked_cell) const;
-    void move(int from, int to, bool is_undoing);
+    void move(int from, int to, int promote_to, bool is_undoing);
 public:
     explicit ChessEngine(const std::string& fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     [[nodiscard]] bitboard_t get_piece_moves(int index) const;  // Pseudo-legal, use has_check and unmove to filter
-    [[nodiscard]] std::vector<std::pair<int, int>> get_moves() const;  // Pseudo-legal, use has_check and unmove to filter
+    [[nodiscard]] std::vector<std::tuple<int, int, int>> get_moves() const;  // Pseudo-legal, use has_check and unmove to filter
     [[nodiscard]] bool has_check(Color attacker) const;
     [[nodiscard]] Color get_turn() const;
-    void move(int from, int to);
+    void move(int from, int to, int promote_to = -1);
     void unmove();
 };
 

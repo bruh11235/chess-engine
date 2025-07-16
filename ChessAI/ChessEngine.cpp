@@ -128,7 +128,6 @@ ChessEngine::ChessEngine(const string& fen) {
 }
 
 
-// TODO: Pawn Promotion
 bitboard_t ChessEngine::get_piece_moves(const int index, const Color turn) const {
     bitboard_t moves = 0;
 
@@ -202,9 +201,9 @@ bitboard_t ChessEngine::get_piece_moves(const int index) const {
 }
 
 
-// Return: [from, to, promotion_flag]
-vector<pair<int, int>> ChessEngine::get_moves() const {
-    vector<pair<int, int>> moves;
+// Return: [from, to, promotion_choices]
+vector<tuple<int, int, int>> ChessEngine::get_moves() const {
+    vector<tuple<int, int, int>> moves;
     bitboard_t own_pieces = (turn == Color::Black ? state.black : state.white);
     while (own_pieces != 0) {
         const bitboard_t from = own_pieces & ~own_pieces + 1;
@@ -212,7 +211,17 @@ vector<pair<int, int>> ChessEngine::get_moves() const {
         bitboard_t possible_moves = get_piece_moves(bit_width(from) - 1);
         while (possible_moves != 0) {
             const bitboard_t to = possible_moves & ~possible_moves + 1;
-            moves.emplace_back(bit_width(from) - 1, bit_width(to) - 1);
+            const int from_id = bit_width(from) - 1, to_id = bit_width(to) - 1;
+            if (turn == Color::Black && (to_id >> 3) == 7 && (state.pieces[0] & from) ||
+                turn == Color::White && (to_id >> 3) == 0 && (state.pieces[0] & from)) {
+                moves.emplace_back(from_id, to_id, 1);
+                moves.emplace_back(from_id, to_id, 2);
+                moves.emplace_back(from_id, to_id, 3);
+                moves.emplace_back(from_id, to_id, 4);
+            } else {
+                moves.emplace_back(from_id, to_id, -1);
+            }
+
             possible_moves ^= to;
         }
 
@@ -278,10 +287,10 @@ bool ChessEngine::has_check(const Color attacker) const {
 Color ChessEngine::get_turn() const { return turn; }
 
 
-void ChessEngine::move(const int from, const int to, const bool is_undoing) {
+void ChessEngine::move(const int from, const int to, const int promote_to, const bool is_undoing) {
     if (pieces[from] == 6) return;
     int cap = to, cap_piece = pieces[to];
-    bool castled = false;
+    bool castled = false, promoted = false;
     const int old_en_passant = en_passant;
     const bitset<4> old_castling = castling;
     const bool is_black_turn = state.black & 1ull << from;
@@ -312,8 +321,8 @@ void ChessEngine::move(const int from, const int to, const bool is_undoing) {
     // Castling
     if (!is_undoing) {
         if (pieces[to] == 5 && abs(from - to) == 2) {
-            if ((to & 7) == 2) move((from & ~7), (from + to) >> 1);
-            else move((from & ~7) + 7, (from + to) >> 1);
+            if ((to & 7) == 2) move((from & ~7), (from + to) >> 1, -1, false);
+            else move((from & ~7) + 7, (from + to) >> 1, -1, false);
             castled = true;
             turn = (turn == Color::White ? Color::Black : Color::White);
         }
@@ -323,20 +332,29 @@ void ChessEngine::move(const int from, const int to, const bool is_undoing) {
         if (!(state.black & state.pieces[3] & (1ull << 0)) || !(state.black & state.pieces[5] & (1ull << 4))) castling[3] = false;
     }
 
+    // Pawn promotion
+    if (promote_to != -1 && !is_undoing) {
+        promoted = true;
+        state.pieces[pieces[to]] ^= (1ull << to);
+        state.pieces[promote_to] ^= (1ull << to);
+        pieces[to] = promote_to;
+    }
+
     if (!is_undoing) {
-        move_history.push({from, to, cap, cap_piece, old_en_passant, castled, old_castling});
+        move_history.push({from, to, cap, cap_piece, old_en_passant, castled, promoted, old_castling});
         turn = (turn == Color::White ? Color::Black : Color::White);
     }
 }
 
 
-void ChessEngine::move(const int from, const int to) { move(from, to, false); }
+void ChessEngine::move(const int from, const int to, const int promote_to) { move(from, to, promote_to, false); }
 
 
 void ChessEngine::unmove() {
-    auto [from, to, cap, cap_piece, old_en_passant, castled, old_castling] = move_history.pop();
-    move(to, from, true);
+    auto [from, to, cap, cap_piece, old_en_passant, castled, promoted, old_castling] = move_history.pop();
+    move(to, from, -1, true);
 
+    // Uncapture
     const bool black_moved = state.black & 1ull << from;
     if (cap_piece < 6) {
         (black_moved ? state.white : state.black) |= 1ull << cap;
@@ -344,12 +362,19 @@ void ChessEngine::unmove() {
     }
     pieces[cap] = cap_piece;
 
-    en_passant = old_en_passant;
-    castling = old_castling;
+    // Unpromote
+    if (promoted) {
+        state.pieces[pieces[from]] ^= (1ull << from);
+        state.pieces[0] |= (1ull << from);
+        pieces[from] = 0;
+    }
 
     if (castled) {
         unmove();
     } else {
         turn = (turn == Color::White ? Color::Black : Color::White);
     }
+
+    en_passant = old_en_passant;
+    castling = old_castling;
 }
