@@ -78,7 +78,7 @@ Bitboard::Bitboard() {
 }
 
 
-// TODO: Pawn Promotion, Castling
+// TODO: Pawn Promotion
 bitboard_t ChessEngine::get_piece_moves(const int index, const Color turn) const {
     bitboard_t moves = 0;
 
@@ -126,6 +126,21 @@ bitboard_t ChessEngine::get_piece_moves(const int index, const Color turn) const
     // King
     if (state.pieces[5] & own_pieces & piece) {
         moves |= Bitboard::king_moves[index];
+        if (turn == Color::White && !has_check(Color::Black)) {
+            if ((state.white & (state.pieces[3] | state.pieces[5]) & 0b1111ull << 60) == (1ull << 60 | 1ull << 63)
+                && (all_pieces & ((1ull << 61) | (1ull << 62))) == 0 && castling[0] && !is_attacked(Color::Black, piece << 1))
+                moves |= piece << 2;
+            if ((state.white & (state.pieces[3] | state.pieces[5]) & 0b11111ull << 56) == (1ull << 56 | 1ull << 60)
+            && (all_pieces & ((1ull << 57) | (1ull << 58) | (1ull << 59))) == 0 && castling[1] && !is_attacked(Color::Black, piece >> 1))
+                moves |= piece >> 2;
+        } else if (turn == Color::Black && !has_check(Color::White)) {
+            if ((state.black & (state.pieces[3] | state.pieces[5]) & 0b1111 << 4) == (1 << 4 | 1 << 7)
+                && (all_pieces & ((1 << 5) | (1 << 6))) == 0 && castling[2] && !is_attacked(Color::White, piece << 1))
+                moves |= piece << 2;
+            if ((state.black & (state.pieces[3] | state.pieces[5]) & 31) == 17 &&
+                (all_pieces & 14) == 0 && castling[3] && !is_attacked(Color::White, piece >> 1))
+                moves |= piece >> 2;
+        }
     }
 
     return moves ^ moves & own_pieces;
@@ -137,6 +152,7 @@ bitboard_t ChessEngine::get_piece_moves(const int index) const {
 }
 
 
+// Return: [from, to, promotion_flag]
 vector<pair<int, int>> ChessEngine::get_moves() const {
     vector<pair<int, int>> moves;
     bitboard_t own_pieces = (turn == Color::Black ? state.black : state.white);
@@ -172,19 +188,18 @@ bitboard_t ChessEngine::attacked_cells(const Color attacker) const {
 }
 
 
-bool ChessEngine::has_check(const Color attacker) const {
+bool ChessEngine::is_attacked(const Color attacker, const bitboard_t attacked_cell) const {
     const bitboard_t all_pieces = state.black | state.white;
     const bitboard_t attacker_pieces = (attacker == Color::Black ? state.black : state.white);
-    const bitboard_t target_king = (attacker == Color::Black ? state.white : state.black) & state.pieces[5];
-    const int index = bit_width(target_king) - 1;
+    const int index = bit_width(attacked_cell) - 1;
 
     // Attacked by rook / queen
-    const bitboard_t rook_occupancy = all_pieces & Bitboard::rook_moves[index][MAGIC_MASK];
+    const bitboard_t rook_occupancy = (all_pieces & Bitboard::rook_moves[index][MAGIC_MASK]);
     const bitboard_t rook_attacks = Bitboard::rook_moves[index][rook_occupancy * ROOK_MAGIC[index] >> MAGIC_SHIFT];
     if (rook_attacks & attacker_pieces & (state.pieces[3] | state.pieces[4])) return true;
 
     // Attacked by bishop / queen
-    const bitboard_t bishop_occupancy = all_pieces & Bitboard::bishop_moves[index][MAGIC_MASK];
+    const bitboard_t bishop_occupancy = (all_pieces & Bitboard::bishop_moves[index][MAGIC_MASK]);
     const bitboard_t bishop_attacks = Bitboard::bishop_moves[index][bishop_occupancy * BISHOP_MAGIC[index] >> MAGIC_SHIFT];
     if (bishop_attacks & attacker_pieces & (state.pieces[2] | state.pieces[4])) return true;
 
@@ -194,25 +209,31 @@ bool ChessEngine::has_check(const Color attacker) const {
 
     // Attacked by pawn
     if (attacker == Color::White) {
-        if ((index & 7) != 0 && (attacker_pieces & state.pieces[0] & (target_king << 7))) return true;
-        if ((index & 7) != 7 && (attacker_pieces & state.pieces[0] & (target_king << 9))) return true;
+        if ((index & 7) != 0 && (attacker_pieces & state.pieces[0] & (attacked_cell << 7))) return true;
+        if ((index & 7) != 7 && (attacker_pieces & state.pieces[0] & (attacked_cell << 9))) return true;
     } else {
-        if ((index & 7) != 0 && (attacker_pieces & state.pieces[0] & (target_king >> 9))) return true;
-        if ((index & 7) != 7 && (attacker_pieces & state.pieces[0] & (target_king >> 7))) return true;
+        if ((index & 7) != 0 && (attacker_pieces & state.pieces[0] & (attacked_cell >> 9))) return true;
+        if ((index & 7) != 7 && (attacker_pieces & state.pieces[0] & (attacked_cell >> 7))) return true;
     }
-
     return false;
+}
+
+
+bool ChessEngine::has_check(const Color attacker) const {
+    const bitboard_t target_king = (attacker == Color::Black ? state.white : state.black) & state.pieces[5];
+    return is_attacked(attacker, target_king);
 }
 
 
 Color ChessEngine::get_turn() const { return turn; }
 
 
-
-void ChessEngine::move(const int from, const int to, const bool undoing) {
+void ChessEngine::move(const int from, const int to, const bool is_undoing) {
     if (pieces[from] == 6) return;
     int cap = to, cap_piece = pieces[to];
-    const int current_en_passant = en_passant;
+    bool castled = false;
+    const int old_en_passant = en_passant;
+    const bitset<4> old_castling = castling;
     const bool is_black_turn = state.black & 1ull << from;
 
     (is_black_turn ? state.white : state.black) &= ~(1ull << to);
@@ -226,7 +247,7 @@ void ChessEngine::move(const int from, const int to, const bool undoing) {
     pieces[from] = 6;
 
     // En Passant
-    if (!undoing) {
+    if (!is_undoing) {
         if (pieces[to] == 0 && to == en_passant) {
             cap = (to >> 3) == 2 ? to + 8 : to - 8;
             cap_piece = pieces[cap];
@@ -238,10 +259,24 @@ void ChessEngine::move(const int from, const int to, const bool undoing) {
         else en_passant = -1;
     }
 
-    if (!undoing) {
-        move_history.push({from, to, cap, cap_piece, current_en_passant});
+    // Castling
+    if (!is_undoing) {
+        if (pieces[to] == 5 && abs(from - to) == 2) {
+            if ((to & 7) == 2) move((from & ~7), (from + to) >> 1);
+            else move((from & ~7) + 7, (from + to) >> 1);
+            castled = true;
+            turn = (turn == Color::White ? Color::Black : Color::White);
+        }
+        if (!(state.white & state.pieces[3] & (1ull << 63)) || !(state.white & state.pieces[5] & (1ull << 60))) castling[0] = false;
+        if (!(state.white & state.pieces[3] & (1ull << 56)) || !(state.white & state.pieces[5] & (1ull << 60))) castling[1] = false;
+        if (!(state.black & state.pieces[3] & (1ull << 7)) || !(state.black & state.pieces[5] & (1ull << 4))) castling[2] = false;
+        if (!(state.black & state.pieces[3] & (1ull << 0)) || !(state.black & state.pieces[5] & (1ull << 4))) castling[3] = false;
     }
-    turn = (turn == Color::White ? Color::Black : Color::White);
+
+    if (!is_undoing) {
+        move_history.push({from, to, cap, cap_piece, old_en_passant, castled, old_castling});
+        turn = (turn == Color::White ? Color::Black : Color::White);
+    }
 }
 
 
@@ -249,7 +284,7 @@ void ChessEngine::move(const int from, const int to) { move(from, to, false); }
 
 
 void ChessEngine::unmove() {
-    auto [from, to, cap, cap_piece, old_en_passant] = move_history.pop();
+    auto [from, to, cap, cap_piece, old_en_passant, castled, old_castling] = move_history.pop();
     move(to, from, true);
 
     const bool black_moved = state.black & 1ull << from;
@@ -260,4 +295,11 @@ void ChessEngine::unmove() {
     pieces[cap] = cap_piece;
 
     en_passant = old_en_passant;
+    castling = old_castling;
+
+    if (castled) {
+        unmove();
+    } else {
+        turn = (turn == Color::White ? Color::Black : Color::White);
+    }
 }

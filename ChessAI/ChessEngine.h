@@ -31,7 +31,9 @@ class ChessEngine {
 // ====== Helper Structs ======
 
     struct MoveInfo {
-        int from, to, cap, cap_piece, en_passant;
+        int from{}, to{}, cap{}, cap_piece{}, en_passant{};
+        bool castled{};
+        std::bitset<4> castling;
     };
     template <std::size_t N>
     struct CircularStack {
@@ -72,7 +74,8 @@ class ChessEngine {
 
     [[nodiscard]] bitboard_t attacked_cells(Color attacker) const;
     [[nodiscard]] bitboard_t get_piece_moves(int index, Color turn) const;
-    void move(int from, int to, bool undoing);
+    [[nodiscard]] bool is_attacked(Color attacker, bitboard_t attacked_cell) const;
+    void move(int from, int to, bool is_undoing);
 public:
     [[nodiscard]] bitboard_t get_piece_moves(int index) const;  // Pseudo-legal, use has_check and unmove to filter
     [[nodiscard]] std::vector<std::pair<int, int>> get_moves() const;  // Pseudo-legal, use has_check and unmove to filter
