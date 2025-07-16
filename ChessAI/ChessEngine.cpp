@@ -66,15 +66,65 @@ const array<bitboard_t, 64> Bitboard::knight_moves = generate_fixed_moves({{1, 2
 const array<bitboard_t, 64> Bitboard::king_moves = generate_fixed_moves({{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {1, 1}, {-1, 1}, {1, -1}, {-1, -1}});
 
 
-Bitboard::Bitboard() {
-    black=      0x000000000000FFFF;
-    white=      0xFFFF000000000000;
-    pieces[0]=  0x00FF00000000FF00;
-    pieces[1]=  0x4200000000000042;
-    pieces[2]=  0x2400000000000024;
-    pieces[3]=  0x8100000000000081;
-    pieces[4]=  0x0800000000000008;
-    pieces[5]=  0x1000000000000010;
+ChessEngine::ChessEngine(const string& fen) {
+    istringstream iss(fen);
+    string pos, turn, castling, en_passant, half, full;
+    iss >> pos >> turn >> castling >> en_passant >> half >> full;
+
+    // Position
+    for (int &piece : pieces) piece = 6;
+    int index = 0;
+    for (char c : pos) {
+        if (c == '/') continue;
+        if ('0' <= c && c <= '9') {
+            index += (c - '0');
+        } else {
+            if ('a' <= c && c <= 'z') state.black |= (1ull << index);
+            if ('A' <= c && c <= 'Z') state.white |= (1ull << index);
+            if (tolower(c) == 'p') {
+                state.pieces[0] |= (1ull << index);
+                pieces[index] = 0;
+            }
+            if (tolower(c) == 'n') {
+                state.pieces[1] |= (1ull << index);
+                pieces[index] = 1;
+            }
+            if (tolower(c) == 'b') {
+                state.pieces[2] |= (1ull << index);
+                pieces[index] = 2;
+            }
+            if (tolower(c) == 'r') {
+                state.pieces[3] |= (1ull << index);
+                pieces[index] = 3;
+            }
+            if (tolower(c) == 'q') {
+                state.pieces[4] |= (1ull << index);
+                pieces[index] = 4;
+            }
+            if (tolower(c) == 'k') {
+                state.pieces[5] |= (1ull << index);
+                pieces[index] = 5;
+            }
+            index++;
+        }
+    }
+
+    // Turn
+    this->turn = (turn == "w" ? Color::White : Color::Black);
+
+    // Castling
+    for (int i = 0; i < 4; ++i) {
+        if (castling.find("KQkq"[i]) != std::string::npos) {
+            this->castling[i] = true;
+        }
+    }
+
+    // En passant
+    if (en_passant == "-") {
+        this->en_passant = -1;
+    } else {
+        this->en_passant = (8 - en_passant[1] + '0') * 8 + (en_passant[0] - 'a');
+    }
 }
 
 

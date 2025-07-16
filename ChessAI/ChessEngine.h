@@ -15,15 +15,13 @@ constexpr int MAGIC_SHIFT = 51;
 
 
 struct Bitboard {
-    bitboard_t black, white;
+    bitboard_t black{}, white{};
     bitboard_t pieces[6]{};  // 0: pawn, 1: knight, 2: bishop, 3: rook, 4: queen, 5: king;
 
     static const std::array<std::array<bitboard_t, 8193>, 64> rook_moves;
     static const std::array<std::array<bitboard_t, 8193>, 64> bishop_moves;
     static const std::array<bitboard_t, 64> knight_moves;
     static const std::array<bitboard_t, 64> king_moves;
-
-    Bitboard();
 };
 
 
@@ -53,21 +51,10 @@ class ChessEngine {
 // ====== Attributes ======
 
     Bitboard state;
-    int pieces[64] = {
-        3,1,2,4,5,2,1,3,
-        0,0,0,0,0,0,0,0,
-        6,6,6,6,6,6,6,6,
-        6,6,6,6,6,6,6,6,
-        6,6,6,6,6,6,6,6,
-        6,6,6,6,6,6,6,6,
-        0,0,0,0,0,0,0,0,
-        3,1,2,4,5,2,1,3
-    };  // 0: pawn, 1: knight, 2: bishop, 3: rook, 4: queen, 5: king, 6: empty;
-
-    Color turn = Color::White;
-    std::bitset<4> castling{"1111"};  // (white ->) KQkq (<- black)
-    int en_passant = -1;
-    int half_move = 0;  // Draw when half-move clock hits 100
+    int pieces[64]{};  // 0: pawn, 1: knight, 2: bishop, 3: rook, 4: queen, 5: king, 6: empty;
+    Color turn;
+    int en_passant;
+    std::bitset<4> castling;  // (white ->) KQkq (<- black)
     CircularStack<20> move_history;
 
 // ====== Methods ======
@@ -77,6 +64,7 @@ class ChessEngine {
     [[nodiscard]] bool is_attacked(Color attacker, bitboard_t attacked_cell) const;
     void move(int from, int to, bool is_undoing);
 public:
+    explicit ChessEngine(const std::string& fen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
     [[nodiscard]] bitboard_t get_piece_moves(int index) const;  // Pseudo-legal, use has_check and unmove to filter
     [[nodiscard]] std::vector<std::pair<int, int>> get_moves() const;  // Pseudo-legal, use has_check and unmove to filter
     [[nodiscard]] bool has_check(Color attacker) const;
