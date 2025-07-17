@@ -6,7 +6,7 @@ import pygame
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
-    from ChessModel import ChessModel
+    from src.ChessGUI.ChessModel import ChessModel
 
 
 class ChessView:

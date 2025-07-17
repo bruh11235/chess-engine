@@ -70,7 +70,7 @@ public:
     [[nodiscard]] std::vector<std::tuple<int, int, int>> get_moves() const;  // Pseudo-legal, use has_check and unmove to filter
     [[nodiscard]] bool has_check(Color attacker) const;
     [[nodiscard]] Color get_turn() const;
-    void move(int from, int to, int promote_to = -1);
+    void move(int from, int to, int promote_to = -1);  // promote_to: [1: knight, 2: bishop, 3: rook, 4: queen]
     void unmove();
 };
 
