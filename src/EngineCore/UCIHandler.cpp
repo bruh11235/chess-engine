@@ -3,6 +3,17 @@
 using namespace std;
 
 
+namespace {
+    string index_to_UCI(const int index) {
+        const int file = index & 7;
+        const int rank = 8 - (index >> 3);
+        const char fileChar = static_cast<char>(file + 'a');
+        const char rankChar = static_cast<char>(rank + '0');
+        return string() + fileChar + rankChar;
+    }
+}
+
+
 void UCIHandler::read_starting_position(const string &command) const {
     istringstream iss(command);
     string token;
@@ -19,6 +30,7 @@ void UCIHandler::read_starting_position(const string &command) const {
         }
         engine = ChessEngine(fen_string);
     } else if (token == "startpos") {
+        engine = ChessEngine();
         iss >> token;
     } else {
         throw runtime_error("Unknown token after \'position\'");
@@ -48,6 +60,17 @@ void UCIHandler::read_starting_position(const string &command) const {
 }
 
 
+void UCIHandler::get_move(const std::string &command) const {
+    auto [from, to, promotion] = bot.bestmove("");
+    string move = index_to_UCI(from) + index_to_UCI(to);
+    if (promotion == 1) move += 'n';
+    else if (promotion == 2) move += 'b';
+    else if (promotion == 3) move += 'r';
+    else if (promotion == 4) move += 'q';
+    cout << "bestmove " << move << endl;
+}
+
+
 void UCIHandler::start() const {
     while (true) {
         string command;
@@ -59,7 +82,7 @@ void UCIHandler::start() const {
         } else if (command.substr(0, 8) == "position") {
             read_starting_position(command);
         } else if (command.substr(0, 2) == "go") {
-            cout << "bestmove e2e4" << endl;
+            get_move(command);
         } else if (command == "quit") {
             break;
         }
