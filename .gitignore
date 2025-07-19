@@ -1,0 +1,11 @@
+.env
+.gitignore
+
+# CLion Stuff
+CMakeLists.txt
+cmake-build-debug
+
+# VScode Stuff
+.vscode
+.idea
+src/main.exe

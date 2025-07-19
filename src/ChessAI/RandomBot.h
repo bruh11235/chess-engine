@@ -8,7 +8,7 @@ class RandomBot final : public AbstractBot {
     std::mt19937 rng;
 public:
     RandomBot() = delete;
-    explicit RandomBot (ChessEngine &engine, int seed = 0);
+    using AbstractBot::AbstractBot;
     std::tuple<int, int, int> bestmove(std::string command) override;
 };
 

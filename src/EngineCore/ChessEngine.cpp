@@ -231,6 +231,23 @@ vector<tuple<int, int, int>> ChessEngine::get_moves() const {
 }
 
 
+vector<tuple<int, int, int>> ChessEngine::get_legal_moves() {
+    vector<tuple<int, int, int>> moves = get_moves();
+    vector<tuple<int, int, int>> legal_moves;
+
+    for (auto [from, to, promote] : moves) {
+        move(from, to, promote, false);
+        if (!has_check(turn)) {
+            legal_moves.emplace_back(from, to, promote);
+        }
+        unmove();
+    }
+
+    return legal_moves;
+}
+
+
+
 bitboard_t ChessEngine::attacked_cells(const Color attacker) const {
     bitboard_t moves = 0;
     const bitboard_t own_pieces = (attacker == Color::Black ? state.black : state.white);
@@ -285,6 +302,9 @@ bool ChessEngine::has_check(const Color attacker) const {
 
 
 Color ChessEngine::get_turn() const { return turn; }
+
+
+Bitboard ChessEngine::get_state() const { return state; }
 
 
 void ChessEngine::move(const int from, const int to, const int promote_to, const bool is_undoing) {
