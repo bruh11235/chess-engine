@@ -1,10 +1,9 @@
 #include "GreedyBot.h"
 #include "utils.h"
 #include <bits/stdc++.h>
-
 using namespace std;
 
-std::tuple<int, int, int> GreedyBot::bestmove(std::string command) {
+tuple<int, int, int> GreedyBot::bestmove(string command) {
     vector<tuple<int, int, int>> moves = engine.get_legal_moves();
     const Color own_turn = engine.get_turn();
     vector<tuple<int, int, int>> best_moves;
@@ -13,7 +12,7 @@ std::tuple<int, int, int> GreedyBot::bestmove(std::string command) {
     for (auto [from, to, promote] : moves) {
 
         engine.move(from, to, promote);
-        int score = move_eval(engine.get_state(), own_turn);
+        int score = state_eval(engine.get_state(), own_turn);
         if (game_end(engine) == 1) score = 999999;
         else if (game_end(engine) == 2) score = 0;
         engine.unmove();
@@ -26,8 +25,6 @@ std::tuple<int, int, int> GreedyBot::bestmove(std::string command) {
             best_moves.emplace_back(from, to, promote);
         }
     }
-
-    cout << best_score << "\n";
 
     uniform_int_distribution<> random_index(0, static_cast<int>(best_moves.size() - 1));
     return best_moves[random_index(rng)];

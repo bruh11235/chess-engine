@@ -5,7 +5,6 @@
 #include <random>
 
 class RandomBot final : public AbstractBot {
-    std::mt19937 rng;
 public:
     RandomBot() = delete;
     using AbstractBot::AbstractBot;

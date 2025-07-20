@@ -247,7 +247,6 @@ vector<tuple<int, int, int>> ChessEngine::get_legal_moves() {
 }
 
 
-
 bitboard_t ChessEngine::attacked_cells(const Color attacker) const {
     bitboard_t moves = 0;
     const bitboard_t own_pieces = (attacker == Color::Black ? state.black : state.white);

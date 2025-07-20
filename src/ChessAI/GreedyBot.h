@@ -5,7 +5,6 @@
 #include <random>
 
 class GreedyBot final : public AbstractBot {
-    std::mt19937 rng;
 public:
     GreedyBot() = delete;
     using AbstractBot::AbstractBot;

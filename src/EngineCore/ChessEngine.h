@@ -13,8 +13,6 @@ constexpr bitboard_t BISHOP_MAGIC[64] = {0x1B893094930C8CD3,0x34290BC08499D461,0
 constexpr int MAGIC_MASK = 8192;
 constexpr int MAGIC_SHIFT = 51;
 
-inline int DEBUG = 0;
-
 struct Bitboard {
     bitboard_t black{}, white{};
     bitboard_t pieces[6]{};  // 0: pawn, 1: knight, 2: bishop, 3: rook, 4: queen, 5: king;
