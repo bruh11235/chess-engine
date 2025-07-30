@@ -130,7 +130,7 @@ bitboard_t ChessEngine::get_piece_moves(const int index, const Color turn) const
         }
     }
 
-    return moves ^ moves & own_pieces;
+    return moves ^ (moves & own_pieces);
 }
 
 
@@ -144,14 +144,14 @@ vector<tuple<int, int, int>> ChessEngine::get_moves() const {
     vector<tuple<int, int, int>> moves;
     bitboard_t own_pieces = (turn == Color::Black ? state.black : state.white);
     while (own_pieces != 0) {
-        const bitboard_t from = own_pieces & ~own_pieces + 1;
+        const bitboard_t from = own_pieces & (~own_pieces + 1);
 
         bitboard_t possible_moves = get_piece_moves(bit_width(from) - 1);
         while (possible_moves != 0) {
-            const bitboard_t to = possible_moves & ~possible_moves + 1;
+            const bitboard_t to = possible_moves & (~possible_moves + 1);
             const int from_id = bit_width(from) - 1, to_id = bit_width(to) - 1;
-            if (turn == Color::Black && (to_id >> 3) == 7 && (state.pieces[0] & from) ||
-                turn == Color::White && (to_id >> 3) == 0 && (state.pieces[0] & from)) {
+            if ((turn == Color::Black && to_id >> 3 == 7 && (state.pieces[0] & from)) ||
+                (turn == Color::White && to_id >> 3 == 0 && (state.pieces[0] & from))) {
                 moves.emplace_back(from_id, to_id, 1);
                 moves.emplace_back(from_id, to_id, 2);
                 moves.emplace_back(from_id, to_id, 3);
@@ -191,7 +191,7 @@ bitboard_t ChessEngine::attacked_cells(const Color attacker) const {
     bitboard_t current_pieces = own_pieces;
 
     while (current_pieces != 0) {
-        const bitboard_t piece = current_pieces & ~current_pieces + 1;
+        const bitboard_t piece = current_pieces & (~current_pieces + 1);
         moves |= get_piece_moves(bit_width(piece) - 1);
         current_pieces ^= piece;
     }

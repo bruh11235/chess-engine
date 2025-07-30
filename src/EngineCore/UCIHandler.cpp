@@ -61,7 +61,7 @@ void UCIHandler::read_starting_position(const string &command) const {
 
 
 void UCIHandler::get_move(const std::string &command) const {
-    auto [from, to, promotion] = bot.bestmove("");
+    auto [from, to, promotion] = bot.bestmove(command);
     string move = index_to_UCI(from) + index_to_UCI(to);
     if (promotion == 1) move += 'n';
     else if (promotion == 2) move += 'b';

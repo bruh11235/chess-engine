@@ -90,7 +90,8 @@ pair<tuple<int, int, int>, int> MinimaxBot::minimax_search(
 }
 
 
-tuple<int, int, int> MinimaxBot::bestmove(string command) {
+tuple<int, int, int> MinimaxBot::bestmove(const string command) {
+    assert(command.substr(0, 2) == "go");
     nodes_visited = 0;
     auto [move, score] = minimax_search(engine.get_turn(), engine.get_turn(), 0, -INF, INF);
     cout << "info string Minimax score: " << score << "\n";

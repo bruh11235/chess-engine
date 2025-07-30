@@ -22,7 +22,7 @@ constexpr int KING_PST_END[64] = {-50,-40,-30,-20,-20,-30,-40,-50,-30,-20,-10,0,
 inline int piece_eval(bitboard_t pieces, const Color &turn, const int base_value, const int pst[]) {
     int score = 0;
     while (pieces != 0) {
-        const bitboard_t piece = pieces & ~pieces + 1;
+        const bitboard_t piece = pieces & (~pieces + 1);
         int index = std::bit_width(piece) - 1;
         if (turn == Color::Black) index ^= 56;
         score += base_value + pst[index];

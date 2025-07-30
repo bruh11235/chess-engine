@@ -10,7 +10,7 @@ namespace {
             for (int c = 0; c < 8; c++) {
                 for (auto [dr, dc] : moves) {
                     if (const int r2 = r + dr, c2 = c + dc; 0 <= r2 && r2 < 8 && 0 <= c2 && c2 < 8)
-                        masks[r * 8 + c] |= 1ull << r2 * 8 + c2;
+                        masks[r * 8 + c] |= 1ull << (r2 * 8 + c2);
                 }
             }
         }
@@ -29,7 +29,7 @@ namespace {
                 for (auto [dr, dc] : moves) {
                     int r2 = r + dr, c2 = c + dc;
                     while (0 <= r2 + dr && r2 + dr < 8 && 0 <= c2 + dc && c2 + dc < 8) {
-                        full_mask |= 1ull << r2 * 8 + c2;
+                        full_mask |= 1ull << (r2 * 8 + c2);
                         r2 += dr, c2 += dc;
                     }
                 }
@@ -41,16 +41,16 @@ namespace {
                     for (auto [dr, dc] : moves) {
                         int r2 = r + dr, c2 = c + dc;
                         while (0 <= r2 && r2 < 8 && 0 <= c2 && c2 < 8) {
-                            mask |= 1ull << r2 * 8 + c2;
-                            if (subset & 1ull << r2 * 8 + c2) break;
+                            mask |= 1ull << (r2 * 8 + c2);
+                            if (subset & 1ull << (r2 * 8 + c2)) break;
                             r2 += dr, c2 += dc;
                         }
                     }
                     const int index = static_cast<int>(subset * magic[r * 8 + c] >> MAGIC_SHIFT);
-                    assert(0 <= index < (1 << (64 - MAGIC_SHIFT)));
+                    assert(0 <= index && index < (1 << (64 - MAGIC_SHIFT)));
                     assert(!masks[r * 8 + c][index] || masks[r * 8 + c][index] == mask);
                     masks[r * 8 + c][index] = mask;
-                    subset = subset - full_mask & full_mask;
+                    subset = (subset - full_mask) & full_mask;
                 } while (subset != 0);
             }
         }
