@@ -6,7 +6,8 @@ using namespace std;
 constexpr int MAX_DEPTH = 6;
 constexpr int INF = 999999;
 
-int nodes_visited;  // For debugging/logging purpose only
+int nodes_visited;  // TODO: For debugging/logging purpose only
+unordered_set<long long> unique_hashes;
 
 
 void MinimaxBot::order_moves(vector<tuple<int, int, int>> &moves, const Color self_turn, bool ascending) const {
@@ -30,6 +31,7 @@ pair<tuple<int, int, int>, int> MinimaxBot::minimax_search(
     const Color self_turn, const Color current_turn, const int depth, int alpha, int beta) {
 
     nodes_visited++;
+    unique_hashes.insert(engine.get_hash());
 
     // Max depth reached
     uniform_int_distribution<> noise(-1, 1);
@@ -92,6 +94,7 @@ tuple<int, int, int> MinimaxBot::bestmove(string command) {
     nodes_visited = 0;
     auto [move, score] = minimax_search(engine.get_turn(), engine.get_turn(), 0, -INF, INF);
     cout << "info string Minimax score: " << score << "\n";
-    cout << "info string Minimax nodes: " << nodes_visited << "\n";
+    cout << "info string Minimax nodes: " << nodes_visited << " (" << unique_hashes.size() << " unique)\n";
+    cout << "info string Zobrist: " << engine.get_hash() << "\n";
     return move;
 }

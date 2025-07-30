@@ -2,70 +2,6 @@
 #include <bits/stdc++.h>
 using namespace std;
 
-
-// Internal helpers
-namespace {
-    array<bitboard_t, 64> generate_fixed_moves(const vector<pair<int, int>> &moves) {
-        array<bitboard_t, 64> masks{};
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                for (auto [dr, dc] : moves) {
-                    if (const int r2 = r + dr, c2 = c + dc; 0 <= r2 && r2 < 8 && 0 <= c2 && c2 < 8)
-                        masks[r * 8 + c] |= 1ull << r2 * 8 + c2;
-                }
-            }
-        }
-        return masks;
-    }
-
-
-    /*
-        array[i][MAGIC_MASK] = All relevant occupancy positions
-    */
-    array<array<bitboard_t, 8193>, 64> generate_sweeping_moves(const vector<pair<int, int>> &moves, const bitboard_t magic[64]) {
-        array<array<bitboard_t, 8193>, 64>masks{};
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                bitboard_t full_mask = 0;
-                for (auto [dr, dc] : moves) {
-                    int r2 = r + dr, c2 = c + dc;
-                    while (0 <= r2 + dr && r2 + dr < 8 && 0 <= c2 + dc && c2 + dc < 8) {
-                        full_mask |= 1ull << r2 * 8 + c2;
-                        r2 += dr, c2 += dc;
-                    }
-                }
-                masks[r * 8 + c][MAGIC_MASK] = full_mask;
-
-                bitboard_t subset = 0;
-                do {
-                    bitboard_t mask = 0;
-                    for (auto [dr, dc] : moves) {
-                        int r2 = r + dr, c2 = c + dc;
-                        while (0 <= r2 && r2 < 8 && 0 <= c2 && c2 < 8) {
-                            mask |= 1ull << r2 * 8 + c2;
-                            if (subset & 1ull << r2 * 8 + c2) break;
-                            r2 += dr, c2 += dc;
-                        }
-                    }
-                    const int index = static_cast<int>(subset * magic[r * 8 + c] >> MAGIC_SHIFT);
-                    assert(0 <= index < (1 << (64 - MAGIC_SHIFT)));
-                    assert(!masks[r * 8 + c][index] || masks[r * 8 + c][index] == mask);
-                    masks[r * 8 + c][index] = mask;
-                    subset = subset - full_mask & full_mask;
-                } while (subset != 0);
-            }
-        }
-        return masks;
-    }
-};
-
-
-const array<array<bitboard_t, 8193>, 64> Bitboard::rook_moves = generate_sweeping_moves({{-1, 0}, {1, 0}, {0, -1}, {0, 1}}, ROOK_MAGIC);
-const array<array<bitboard_t, 8193>, 64> Bitboard::bishop_moves = generate_sweeping_moves({{1, 1}, {-1, 1}, {1, -1}, {-1, -1}}, BISHOP_MAGIC);
-const array<bitboard_t, 64> Bitboard::knight_moves = generate_fixed_moves({{1, 2}, {-1, 2}, {1, -2}, {-1, -2}, {2, 1}, {-2, 1}, {2, -1}, {-2, -1}});
-const array<bitboard_t, 64> Bitboard::king_moves = generate_fixed_moves({{-1, 0}, {1, 0}, {0, -1}, {0, 1}, {1, 1}, {-1, 1}, {1, -1}, {-1, -1}});
-
-
 ChessEngine::ChessEngine(const string& fen) {
     istringstream iss(fen);
     string pos, turn, castling, en_passant, half, full;
@@ -108,9 +44,11 @@ ChessEngine::ChessEngine(const string& fen) {
             index++;
         }
     }
+    hash = Zobrist(state);
 
     // Turn
     this->turn = (turn == "w" ? Color::White : Color::Black);
+    hash.set_turn(this->turn);
 
     // Castling
     for (int i = 0; i < 4; ++i) {
@@ -314,14 +252,19 @@ void ChessEngine::move(const int from, const int to, const int promote_to, const
     const bitset<4> old_castling = castling;
     const bool is_black_turn = state.black & 1ull << from;
 
-    (is_black_turn ? state.white : state.black) &= ~(1ull << to);
-    (is_black_turn ? state.black : state.white) |= 1ull << to;
-    if (pieces[to] < 6) state.pieces[pieces[to]] ^= 1ull << to;
+    // Switch the 'to' cell
+    (is_black_turn ? state.white : state.black) &= ~(1ull << to);   // Clear 'to' cell
+    if (pieces[to] < 6) hash.toggle(to, pieces[to] + (is_black_turn ? 0 : 6));
+    if (pieces[to] < 6) state.pieces[pieces[to]] &= ~(1ull << to);
+    (is_black_turn ? state.black : state.white) |= 1ull << to;      // Set 'to' cell
+    if (pieces[from] < 6) hash.toggle(to, pieces[from] + (is_black_turn ? 6 : 0));
     if (pieces[from] < 6) state.pieces[pieces[from]] |= 1ull << to;
     pieces[to] = pieces[from];
 
-    (is_black_turn ? state.black : state.white) ^= 1ull << from;
-    if (pieces[from] < 6) state.pieces[pieces[from]] ^= 1ull << from;
+    // Empty the 'from' cell
+    (is_black_turn ? state.black : state.white) &= ~(1ull << from);
+    if (pieces[from] < 6) hash.toggle(from, pieces[from] + (is_black_turn ? 6 : 0));
+    if (pieces[from] < 6) state.pieces[pieces[from]] &= ~(1ull << from);
     pieces[from] = 6;
 
     // En Passant
@@ -329,8 +272,9 @@ void ChessEngine::move(const int from, const int to, const int promote_to, const
         if (pieces[to] == 0 && to == en_passant) {
             cap = (to >> 3) == 2 ? to + 8 : to - 8;
             cap_piece = pieces[cap];
-            (is_black_turn ? state.white : state.black) ^= 1ull << cap;
-            state.pieces[0] ^= 1ull << cap;
+            (is_black_turn ? state.white : state.black) &= ~(1ull << cap);
+            hash.toggle(cap, (is_black_turn ? 0 : 6));
+            state.pieces[0] &= ~(1ull << cap);
             pieces[cap] = 6;
         }
         if (pieces[to] == 0 && abs(to - from) == 16) en_passant = (to + from) >> 1;
@@ -344,6 +288,7 @@ void ChessEngine::move(const int from, const int to, const int promote_to, const
             else move((from & ~7) + 7, (from + to) >> 1, -1, false);
             castled = true;
             turn = (turn == Color::White ? Color::Black : Color::White);
+            hash.set_turn(turn);
         }
         if (!(state.white & state.pieces[3] & (1ull << 63)) || !(state.white & state.pieces[5] & (1ull << 60))) castling[0] = false;
         if (!(state.white & state.pieces[3] & (1ull << 56)) || !(state.white & state.pieces[5] & (1ull << 60))) castling[1] = false;
@@ -354,14 +299,17 @@ void ChessEngine::move(const int from, const int to, const int promote_to, const
     // Pawn promotion
     if (promote_to != -1 && !is_undoing) {
         promoted = true;
-        state.pieces[pieces[to]] ^= (1ull << to);
-        state.pieces[promote_to] ^= (1ull << to);
+        hash.toggle(to, pieces[to] + (is_black_turn ? 6 : 0));
+        state.pieces[pieces[to]] &= ~(1ull << to);
+        hash.toggle(to, promote_to + (is_black_turn ? 6 : 0));
+        state.pieces[promote_to] |= 1ull << to;
         pieces[to] = promote_to;
     }
 
     if (!is_undoing) {
         move_history.push({from, to, cap, cap_piece, old_en_passant, castled, promoted, old_castling});
         turn = (turn == Color::White ? Color::Black : Color::White);
+        hash.set_turn(turn);
     }
 }
 
@@ -370,21 +318,25 @@ void ChessEngine::move(const int from, const int to, const int promote_to) { mov
 
 
 void ChessEngine::unmove() {
-    auto [from, to, cap, cap_piece, old_en_passant, castled, promoted, old_castling] = move_history.pop();
+    auto [from, to, cap, cap_piece, old_en_passant, castled, promoted, old_castling] = move_history.top();
+    move_history.pop();
     move(to, from, -1, true);
 
     // Uncapture
     const bool black_moved = state.black & 1ull << from;
     if (cap_piece < 6) {
         (black_moved ? state.white : state.black) |= 1ull << cap;
+        hash.toggle(cap, cap_piece + (black_moved ? 0 : 6));
         state.pieces[cap_piece] |= 1ull << cap;
     }
     pieces[cap] = cap_piece;
 
     // Unpromote
     if (promoted) {
-        state.pieces[pieces[from]] ^= (1ull << from);
-        state.pieces[0] |= (1ull << from);
+        hash.toggle(from, pieces[from] + (black_moved ? 6 : 0));
+        state.pieces[pieces[from]] &= ~(1ull << from);
+        hash.toggle(from, 0 + (black_moved ? 6 : 0));
+        state.pieces[0] |= 1ull << from;
         pieces[from] = 0;
     }
 
@@ -392,6 +344,7 @@ void ChessEngine::unmove() {
         unmove();
     } else {
         turn = (turn == Color::White ? Color::Black : Color::White);
+        hash.set_turn(turn);
     }
 
     en_passant = old_en_passant;
