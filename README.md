@@ -9,7 +9,7 @@ Uses universal chess interface (UCI)
 1. Clone this repository:
 2. Build the project:
 ```
-g++ -std=c++23 -O2 -I..\EngineCore\util -I..\EngineCore -I..\ChessAI ..\main.cpp ..\ChessAI\MinimaxBot.cpp ..\EngineCore\util\Bitboard.cpp ..\EngineCore\util\Zobrist.cpp ..\EngineCore\ChessEngine.cpp ..\EngineCore\UCIHandler.cpp -o main.exe
+g++ -std=c++23 -O2 -Wall -Wextra -Isrc/EngineCore/util -Isrc/EngineCore -Isrc/ChessAI src/main.cpp src/ChessAI/MinimaxBot.cpp src/EngineCore/util/Bitboard.cpp src/EngineCore/util/Zobrist.cpp src/EngineCore/ChessEngine.cpp src/EngineCore/UCIHandler.cpp -o main.exe
 ```
 3. Run in UCI mode
 ```
