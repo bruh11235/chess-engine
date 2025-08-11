@@ -1,7 +1,19 @@
-# chess-engine
-Chess engine and AI
+# Chess AI
+
+A simple Chess AI built with C++
+
+Uses universal chess interface (UCI)
 
 
-## Resources:
-- Chessboard: https://github.com/lichess-org/lila/blob/master/public/images/board/brown.png
-- Chess Pieces: https://commons.wikimedia.org/wiki/Category:PNG_chess_pieces/Standard_transparent licensed under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
+## How to Run
+1. Clone this repository:
+2. Build the project:
+```
+g++ -std=c++23 -O2 -I..\EngineCore\util -I..\EngineCore -I..\ChessAI ..\main.cpp ..\ChessAI\MinimaxBot.cpp ..\EngineCore\util\Bitboard.cpp ..\EngineCore\util\Zobrist.cpp ..\EngineCore\ChessEngine.cpp ..\EngineCore\UCIHandler.cpp -o main.exe
+```
+3. Run in UCI mode
+```
+./main.exe
+```
+
+(Optional) Integrate into Lichess via https://github.com/lichess-bot-devs/lichess-bot
