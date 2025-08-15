@@ -6,23 +6,29 @@ using namespace std;
 constexpr int MAX_DEPTH = 6;
 constexpr int INF = 999999;
 
-int nodes_visited;  // TODO: For debugging/logging purpose only
+int nodes_visited;
 unordered_set<long long> unique_hashes;
 
 
-void MinimaxBot::order_moves(vector<tuple<int, int, int>> &moves, const Color self_turn, bool ascending) const {
-    ranges::sort(moves, [this, self_turn, ascending](const tuple<int, int, int> &a, const tuple<int, int, int> &b) {
-        const auto [from_a, to_a, promote_a] = a;
-        const auto [from_b, to_b, promote_b] = b;
-        engine.move(from_a, to_a, promote_a);
-        const int score_a = state_eval(engine.get_state(), self_turn);
+void MinimaxBot::order_moves(vector<tuple<int, int, int>> &moves, const Color self_turn, const bool ascending) const {
+    vector<pair<int, tuple<int, int, int>>> move_score;
+    for (tuple<int, int, int> move : moves) {
+        auto [from, to, promote] = move;
+        engine.move(from, to, promote);
+        const int score = state_eval(engine.get_state(), self_turn);
         engine.unmove();
-        engine.move(from_b, to_b, promote_b);
-        const int score_b = state_eval(engine.get_state(), self_turn);
-        engine.unmove();
-        if (ascending) return score_a < score_b;
-        return score_a > score_b;
-    });
+        move_score.emplace_back(score, move);
+    }
+
+    if (ascending) {
+        ranges::sort(move_score);
+    } else {
+        ranges::sort(move_score, greater<>());
+    }
+
+    for (size_t i = 0; i < moves.size(); i++) {
+        moves[i] = move_score[i].second;
+    }
 }
 
 
@@ -93,6 +99,7 @@ pair<tuple<int, int, int>, int> MinimaxBot::minimax_search(
 tuple<int, int, int> MinimaxBot::bestmove(const string command) {
     assert(command.substr(0, 2) == "go");
     nodes_visited = 0;
+    unique_hashes.clear();
     auto [move, score] = minimax_search(engine.get_turn(), engine.get_turn(), 0, -INF, INF);
     cout << "info string Minimax score: " << score << "\n";
     cout << "info string Minimax nodes: " << nodes_visited << " (" << unique_hashes.size() << " unique)\n";
