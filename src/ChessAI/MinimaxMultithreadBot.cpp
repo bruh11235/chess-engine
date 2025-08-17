@@ -7,8 +7,6 @@ constexpr int MAX_DEPTH = 6;
 constexpr int NO_THREAD = 6;
 constexpr int INF = 999999;
 
-atomic<int> nodes_visited;
-
 
 void MinimaxMultithreadBot::order_moves(vector<tuple<int, int, int>> &moves, const Color self_turn, const bool ascending) const {
     vector<pair<int, tuple<int, int, int>>> move_score;
@@ -36,8 +34,6 @@ void MinimaxMultithreadBot::order_moves(vector<tuple<int, int, int>> &moves, con
 pair<tuple<int, int, int>, int> MinimaxMultithreadBot::minimax_thread(
     const Color self_turn, const Color current_turn, const int depth,
     int alpha, int beta, vector<tuple<int, int, int>> moves) {
-
-    nodes_visited += 1;
 
     // Max depth reached
     uniform_int_distribution<> noise(-1, 1);
@@ -132,19 +128,15 @@ pair<tuple<int, int, int>, int> MinimaxMultithreadBot::minimax_YBW(const Color s
     // Run threads
     for (int i = 0; i < NO_THREAD; i++) {
         const Color next_turn = self_turn == Color::White ? Color::Black : Color::White;
-        threads[i] = thread([&thread_score, &next_turn, &thread_moves, &i, &alpha, &self_turn, this] {
-            auto [fst, snd] = minimax_thread(
+        threads[i] = thread([&thread_score, self_turn, next_turn, thread_moves, i, alpha, this] {
+            MinimaxMultithreadBot clone = *this;
+            auto [fst, snd] = clone.minimax_thread(
                 self_turn, next_turn, 1, alpha, INF, thread_moves[i]);
             thread_score[i] = {snd, fst};
         });
-    }
-
-    // Join threads
-    for (int i = 0; i < NO_THREAD; i++) {
         threads[i].join();
         best_result = max(best_result, thread_score[i]);
     }
-
 
     return {best_result.second, best_result.first};
 }
@@ -152,10 +144,8 @@ pair<tuple<int, int, int>, int> MinimaxMultithreadBot::minimax_YBW(const Color s
 
 tuple<int, int, int> MinimaxMultithreadBot::bestmove(const string command) {
     assert(command.substr(0, 2) == "go");
-    nodes_visited = 0;
     auto [move, score] = minimax_YBW(engine.get_turn());
     cout << "info string Minimax score: " << score << "\n";
-    cout << "info string Minimax nodes: " << nodes_visited << "\n";
     cout << "info string Zobrist: " << engine.get_hash() << "\n";
     return move;
 }
