@@ -99,14 +99,14 @@ pair<tuple<int, int, int>, int> MinimaxMultithreadBot::minimax_thread(
 pair<tuple<int, int, int>, int> MinimaxMultithreadBot::minimax_YBW(const Color self_turn) {
     vector<tuple<int, int, int>> moves = engine.get_legal_moves();
     pair<int, tuple<int, int, int>> best_result;
-    int alpha;
+    int alpha = -INF;
 
     thread threads[NO_THREAD];
     vector<tuple<int, int, int>> thread_moves[NO_THREAD];
     pair<int, tuple<int, int, int>> thread_score[NO_THREAD];
 
     order_moves(moves, self_turn, false);
-    for (int i = 0; i < moves.size(); i++) {
+    for (size_t i = 0; i < moves.size(); i++) {
         auto [from, to, promote] = moves[i];
 
         // Search first child serially
@@ -126,14 +126,19 @@ pair<tuple<int, int, int>, int> MinimaxMultithreadBot::minimax_YBW(const Color s
     }
 
     // Run threads
-    for (int i = 0; i < NO_THREAD; i++) {
+    for (size_t i = 0; i < NO_THREAD; i++) {
         const Color next_turn = self_turn == Color::White ? Color::Black : Color::White;
         threads[i] = thread([&thread_score, self_turn, next_turn, thread_moves, i, alpha, this] {
-            MinimaxMultithreadBot clone = *this;
+            ChessEngine engine_clone = this->engine;       // Preventing race conditions
+            MinimaxMultithreadBot clone(engine_clone);  // Preventing race conditions
             auto [fst, snd] = clone.minimax_thread(
                 self_turn, next_turn, 1, alpha, INF, thread_moves[i]);
             thread_score[i] = {snd, fst};
         });
+    }
+
+    // Join threads
+    for (size_t i = 0; i < NO_THREAD; i++) {
         threads[i].join();
         best_result = max(best_result, thread_score[i]);
     }
